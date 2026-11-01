@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{/* Localised on purpose: a <head> copied from another landing once named
+     the wrong project in every browser tab and search result. */}}
+<title>{{ .Site.Title }} — a Slurm cluster on OpenStack, from one Go binary</title>
+<meta name="description" content="slurmstack builds a Slurm cluster on OpenStack — a private network, a router, a floating IP on the frontend, an NFS server and N workers — with Terraform, then configures munge, NFS and Slurm with go-ansible's engine in process. No Python, no ansible-playbook, one static Go binary. Host keys are read from each server's console before the first connection.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+{{ partial "styles.html" . }}
+</head>
+<body class="lm">
+  <header class="nav"><div class="wrap">
+    <a class="brand" href="/"><img class="glyph" src="/img/logo.svg" width="32" height="32" alt="go-slurmstack logo"> go-slurmstack</a>
+    <nav><a href="#why">Why</a><a href="#cluster">Cluster</a><a href="#eco">Repository</a></nav>
+    {{ partial "theme-toggle.html" . }}
+  </div></header>
+
+  <div class="hero"><div class="wrap">
+    <div>
+      <h1 class="head">One command,<br><span class="accent">a Slurm cluster.</span></h1>
+      <p class="sub"><b>A teaching cluster should take one command to build and one to tear down.</b> slurmstack creates the network, the router, the floating IP and the servers with Terraform, then configures munge, NFS and Slurm with <a href="https://github.com/go-ansible">go-ansible</a>'s engine, in process — no Python, no <code>ansible-playbook</code> to install. Pure Go, <code>CGO_ENABLED=0</code>. BSD-3-Clause.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://go-slurmstack.github.io/docs/">{{ partial "icons/book.html" . }}Read the documentation →</a>
+      </div>
+      <div class="trust"><span><b>1</b> static binary, playbooks inside</span><span><b>0</b> host keys taken on trust</span><span><b>CGO=0</b> no Python on the laptop</span></div>
+    </div>
+    <div class="term">
+      <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span class="t">slurmstack — zsh</span></div>
+<pre><span class="c-com"># what it would create, changing nothing</span>
+<span class="c-cmd">$ pkgx task plan</span>
+
+<span class="c-com"># build, configure, then run one job on every worker</span>
+<span class="c-cmd">$ pkgx task deploy</span>
+
+<span class="c-com"># and give the quota back</span>
+<span class="c-cmd">$ pkgx task teardown</span></pre>
+    </div>
+  </div></div>
+
+  <div class="strip"><div class="wrap">
+    <span class="lead-line">{{ len .Site.Params.nodes }} roles — <b>one private network</b>, one public address</span>
+    <div class="mods">{{ range .Site.Params.nodes }}<a href="#cluster">{{ .name }}</a>{{ end }}</div>
+  </div></div>
+
+  <section id="why"><div class="wrap">
+    <span class="eyebrow">Why slurmstack</span>
+    <h2>The first connection is <i>verified</i>, not trusted.</h2>
+    <p class="lead">Most deployers turn host key checking off, because a server that did not exist a minute ago has no key anyone could know. It does: cloud-init prints it on the console, and the cloud API hands the console to the project's owner over HTTPS.</p>
+    <div class="grid">
+      <div class="card"><div class="ico">🔑</div><h3>Host keys from the console</h3><p>Before connecting, slurmstack reads each server's console log through the OpenStack API, takes the keys between cloud-init's markers and writes the only <code>known_hosts</code> the playbooks will accept. Nothing is added to <code>~/.ssh</code>.</p></div>
+      <div class="card"><div class="ico">🐹</div><h3>Ansible without Python</h3><p>The playbooks run on <a href="https://github.com/go-ansible">go-ansible</a>'s engine, linked into the binary. A test parses them and fails if any task names a module the engine lacks, so the gap shows up in CI and not on a live cluster.</p></div>
+      <div class="card"><div class="ico">🧭</div><h3>One public address</h3><p>Only the frontend has a floating IP. The NFS server and the workers are reached through it, over a jump the connector does itself — go-ansible does not read <code>ansible_ssh_common_args</code>.</p></div>
+      <div class="card"><div class="ico">🧂</div><h3>One munge key, kept</h3><p>The key is generated once into the state directory, mode 0600, and handed to the engine in memory — never on a command line. A re-run gives every node the same bytes, so a rebuilt frontend does not orphan its workers.</p></div>
+      <div class="card"><div class="ico">📜</div><h3>An openrc read, not run</h3><p>The OpenStack credentials come from the openrc file Horizon gives you, parsed rather than sourced. A line that needs a shell is refused, and a prompted password is asked for, never taken as the literal <code>$OS_PASSWORD_INPUT</code>.</p></div>
+      <div class="card"><div class="ico">🧹</div><h3>Torn down as easily</h3><p><code>destroy</code> refuses without <code>--yes</code>, and <code>task teardown</code> asks first: the volume behind <code>/home</code> goes with the servers.</p></div>
+    </div>
+  </div></section>
+
+  <section id="cluster" style="padding-top:10px"><div class="wrap">
+    <span class="eyebrow">What it builds</span>
+    <h2>Every role, <i>on its own server</i>.</h2>
+    <div class="grid">
+      {{ range .Site.Params.nodes }}
+      <div class="card"><h3><code>{{ .name }}</code></h3><p>{{ .what | markdownify }}</p></div>
+      {{ end }}
+    </div>
+  </div></section>
+
+  <section id="eco" style="padding-top:6px"><div class="wrap">
+    <div class="band">
+      <h2>A cluster that ships like Go.</h2>
+      <p>Terraform and the playbooks are embedded in the binary; the state, the pinned host keys and the munge key live in one directory beside your <code>terraform.tfvars</code>. Every tool comes from <a href="https://pkgx.sh">pkgx</a>, and every variable — image, flavors, network names, worker count — is a Terraform variable.</p>
+      <a class="btn btn-ghost" href="https://go-slurmstack.github.io/docs/docs/architecture/">{{ partial "icons/book.html" . }}Read how it is built →</a>
+    </div>
+  </div></section>
+
+  <footer><div class="wrap"><span>© the go-slurmstack authors · BSD-3-Clause</span><span>Pure Go · CGO_ENABLED=0 · no frameworks</span></div></footer>
+</body>
+</html>
